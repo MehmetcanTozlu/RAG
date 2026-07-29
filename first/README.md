@@ -31,8 +31,9 @@ rag_tutorial/
 ├── 1.py                         # SimpleRAG & Vector Database Retriever
 ├── app.py                       # Main End-to-End RAG Chat Application
 └── requirements.txt             # Python dependencies
+```
 
-🛠️ Installation & Setup
+## 🛠️ Installation & Setup
 1. Clone the Repository
 git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
 cd your-repo-name
