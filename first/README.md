@@ -57,3 +57,8 @@ pip install -r requirements.txt
 ```bash
 python app.py
 ```
+
+#### The system will:
+Connect to the local Qdrant vector database (ingesting the PDF if it's the first run).
+Load your local GGUF model into VRAM/RAM.
+Allow you to ask questions interactively with live context retrieval logs.
