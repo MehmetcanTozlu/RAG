@@ -50,6 +50,8 @@ source rag_tutorial/bin/activate
 pip install -r requirements.txt
 ```
 ## 4. Download Required Models
+- LLM: Download a GGUF model (e.g., Llama-3.2-3B-Instruct.gguf or Qwen-2.5-Coder) and place it in your local models directory.
+- Embedding Model: Download intfloat/multilingual-e5-small locally.
 
 ## 💻 Usage
 ```bash
