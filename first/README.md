@@ -37,6 +37,21 @@ rag_tutorial/
 1. Clone the Repository
 ```bash
 git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
-
-```markdown
+cd your-repo-name
+```
 ## 2. Create and Activate Virtual Environment
+```bash
+python3 -m venv rag_tutorial
+source rag_tutorial/bin/activate
+```
+## 3. Install Dependencies
+(Note: If you want GPU acceleration for Llama.cpp, make sure to install with CUDA support)
+```bash
+pip install -r requirements.txt
+```
+## 4. Download Required Models
+
+## 💻 Usage
+```bash
+python app.py
+```
