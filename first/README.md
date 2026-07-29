@@ -36,8 +36,8 @@ rag_tutorial/
 ## 🛠️ Installation & Setup
 1. Clone the Repository
 ```bash
-git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
-cd your-repo-name
+git clone https://github.com/MehmetcanTozlu/RAG.git
+cd RAG/first
 ```
 ## 2. Create and Activate Virtual Environment
 ```bash
@@ -62,7 +62,7 @@ python app.py
 1. Connect to the local Qdrant vector database (ingesting the PDF if it's the first run).
 2. Load your local GGUF model into VRAM/RAM.
 3. Allow you to ask questions interactively with live context retrieval logs.
-4. 
+
 ## 🛡️ Tech Stack
 - Orchestration: LangChain
 - Vector DB: Qdrant
