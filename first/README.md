@@ -33,11 +33,11 @@ rag_tutorial/
 ├── app.py                       # Main End-to-End RAG Chat Application
 └── requirements.txt             # Python dependencies
 
-🛠️ Installation & Setup
+## 🛠️ Installation & Setup
 1. Clone the Repository
 
-Bash
-git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
+## Bash
+## git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
 cd your-repo-name
 
 2. Create and Activate Virtual Environment
