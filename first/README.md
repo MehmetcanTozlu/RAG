@@ -59,6 +59,12 @@ python app.py
 ```
 
 #### The system will:
-Connect to the local Qdrant vector database (ingesting the PDF if it's the first run).
-Load your local GGUF model into VRAM/RAM.
-Allow you to ask questions interactively with live context retrieval logs.
+1. Connect to the local Qdrant vector database (ingesting the PDF if it's the first run).
+2. Load your local GGUF model into VRAM/RAM.
+3. Allow you to ask questions interactively with live context retrieval logs.
+4. 
+## 🛡️ Tech Stack
+- Orchestration: LangChain
+- Vector DB: Qdrant
+- Embeddings: HuggingFace (multilingual-e5-small)
+- LLM Runner: llama-cpp-python (C++ optimized for local GPUs)
