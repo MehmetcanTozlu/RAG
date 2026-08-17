@@ -12,12 +12,14 @@ class LLMEngine(object):
         model_path: str,
         temperature: float = 0.1,
         max_new_tokens: int = 512,
+        n_ctx: int = 4096,
     ):
         print(f"\033[94m---Initializing Local LLM Engine---\033[0m")
         start_time = time.time()
         self.model_path = model_path
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
+        self.n_ctx = n_ctx
 
         if self.model_path.lower().endswith(".gguf"):
             print("GGUF format detected. Routing to Llama.cpp engine..")
@@ -70,7 +72,7 @@ class LLMEngine(object):
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             stop=stop_tokens, 
-            n_ctx=4096, # Context window
+            n_ctx=self.n_ctx, # Context window
             n_gpu_layers=-1, # Offload all layers to GPU
             verbose=False, # Trace for debugging
             streaming=True, # Stream the response
@@ -138,11 +140,10 @@ if __name__ == "__main__":
     
     question = str(input(f"\033[94mYour Question:\033[0m "))
     result = main(
-        model_path="",
+        model_path="./Llama-3.2-3B-Instruct-uncensored.Q6_K.gguf",
         temperature=0.1,
         max_new_tokens=512,
         system_message="You are a helpful assistant.",
         user_message=question,
     )
     print(f"\n[\033[92mAI Answer\033[0m]: {result}")
-    
