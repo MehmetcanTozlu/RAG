@@ -14,7 +14,7 @@ By testing these systems against domain-specific documents (e.g., the Turkish Pe
 
 This repository is organized into isolated folders, each representing a distinct RAG architecture. 
 
-### 1. [Hybrid Vector RAG (Current)](RAG/Hybrid/)
+### 1. [Hybrid Vector RAG (Current)](/Hybrid/)
 A highly optimized, standard-bearer RAG pipeline that combines semantic and keyword search.
 * **Features:** Parent-Child Chunking, Qdrant Vector Store, Dense + Sparse (BM25) Retrieval, Reciprocal Rank Fusion (RRF), Cross-Encoder Re-ranking, and In-Memory/Semantic Caching.
 * **Status:** Completed. Includes a custom evaluation script demonstrating the architectural strengths and the limits of small-parameter models.
