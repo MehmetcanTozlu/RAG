@@ -24,7 +24,7 @@ Transitioning from flat vector spaces to interconnected Knowledge Graphs.
 * **Focus:** Extracting entities and relationships to answer complex, multi-hop reasoning questions that traditional vector searches fail to connect.
 * **Tech Stack:** Neo4j, LangGraph.
 
-### 3. CRAG (Corrective RAG) (Current)
+### 3. [CRAG (Corrective RAG) (Current)](/CRAG/)
 Introducing an "Agentic" editor layer.
 * **Focus:** The system will evaluate its own retrieved documents. If the confidence score is low, it will autonomously rewrite the query, re-search, or fallback to external web searches.
 * **Tech Stack:** LangGraph Agent Routing, Tavily Search API.
