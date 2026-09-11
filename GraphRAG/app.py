@@ -184,10 +184,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-"""
-python app.py --db_mode="local" --local_db_user="neo4j" --local_db_password="12345678" \
-    --model_path="/home/mehmet02828/genai_workspace/models/Qwen2.5-7B-Instruct.Q4_K_M.gguf" \
-    --pdf_path="/home/mehmet02828/genai_workspace/rag_tutorial/workspace/data/turk_ceza_kanunu.pdf"
-"""
