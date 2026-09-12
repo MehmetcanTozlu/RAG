@@ -19,7 +19,7 @@ A highly optimized, standard-bearer RAG pipeline that combines semantic and keyw
 * **Features:** Parent-Child Chunking, Qdrant Vector Store, Dense + Sparse (BM25) Retrieval, Reciprocal Rank Fusion (RRF), Cross-Encoder Re-ranking, and In-Memory/Semantic Caching.
 * **Status:** Completed. Includes a custom evaluation script demonstrating the architectural strengths and the limits of small-parameter models.
 
-### 2. GraphRAG *(Coming Soon)*
+### 2. [GraphRAG (Current)](/GraphRAG/)
 Transitioning from flat vector spaces to interconnected Knowledge Graphs.
 * **Focus:** Extracting entities and relationships to answer complex, multi-hop reasoning questions that traditional vector searches fail to connect.
 * **Tech Stack:** Neo4j, LangGraph.

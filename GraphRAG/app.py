@@ -95,6 +95,12 @@ def main():
         help="Path to the LLM model"
     )
     parser.add_argument(
+        "--embedding_model_path",
+        type=str,
+        default="",
+        help="Path to the embedding model"
+    )
+    parser.add_argument(
         "--pdf_path",
         type=str,
         default="",
@@ -165,7 +171,14 @@ def main():
     
         # Process PDF files to build the knowledge graph
         print(f"\n\033[93mStarting Graph Builder (Entity Extraction)...\033[0m")
-        builder = GraphBuilder(llm=llm, graph_db=graph_db)
+        builder = GraphBuilder(
+            llm=llm,
+            graph_db=graph_db,
+            db_uri="bolt://localhost:7687" if args.db_mode == "local" else args.cloud_db_uri,
+            db_user=args.local_db_user if args.db_mode == "local" else args.cloud_db_user,
+            db_password=args.local_db_password if args.db_mode == "local" else args.cloud_db_password,
+            embedding_model_name=args.embedding_model_path
+        )
         builder.process_and_build(pdf_path=args.pdf_path)
         print("\033[92mThe database has been built. Please restart the application for the QA system.\033[0m")
     
@@ -173,7 +186,14 @@ def main():
         print(f"\033[92m{node_count} nodes were found in the database. The 'Build' stage is being skipped and the system is moving directly to 'Query' mode...\033[0m")
         from graph_qa import GraphQA
 
-        qa_system = GraphQA(llm=llm, graph_db=graph_db)
+        qa_system = GraphQA(
+            llm=llm,
+            graph_db=graph_db,
+            db_uri="bolt://localhost:7687" if args.db_mode == "local" else args.cloud_db_uri,
+            db_user=args.local_db_user if args.db_mode == "local" else args.cloud_db_user,
+            db_password=args.local_db_password if args.db_mode == "local" else args.cloud_db_password,
+            embedding_model_name=args.embedding_model_path
+        )
 
         while True:
             user_question = input("\n\033[95mYour Question (Type 'q' to quit): \033[0m")
