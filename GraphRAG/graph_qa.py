@@ -1,4 +1,3 @@
-import re
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END
@@ -33,20 +32,38 @@ class GraphQA:
             password=db_password,
             index_name="entity_vector_index",
             node_label="__Entity__",
-            text_node_property="id",
+            text_node_property="name",
+        )
+
+        # Security Network Index (For Directly Original Texts)
+        print("\033[93mSecurity Network (Document) is checking Vector Index..\033[0m")
+        self.doc_index = Neo4jVector.from_existing_graph(
+            embedding=embedding_model,
+            url=db_uri,
+            username=db_user,
+            password=db_password,
+            index_name="document_vector_index",
+            node_label="Document",
+            text_node_properties=["text"],
+            embedding_node_property="embedding"
         )
 
         # Generating Prompt Verifiable Attribution
         self.answer_prompt = PromptTemplate(
-            template = """Sen uzman bir hukuk asistanısın. Aşağıdaki veritabanından çekilmiş kesin kanun metinlerini (Context) kullanarak kullanıcının sorusunu cevapla.
-Sadece verilen bağlamdaki bilgileri kullan, asla uydurma yapma.
+            template="""Sen katı ve analitik bir Türk Ceza Kanunu (TCK) asistanısın.
+Aşağıdaki numaralandırılmış kesin kanun metinlerini (Kaynaklar) kullanarak soruyu cevapla.
 
-Bağlam (Orijinal Kanun Metinleri ve İlişkiler):
+KURALLAR:
+1. Sadece verilen kaynaklardaki bilgileri kullan. Bilgi yoksa "Bu konu hakkında kanun metninde bilgi bulunmamaktadır." de.
+2. Her hukuki iddianın sonuna, o bilgiyi aldığın kaynağın numarasını [1], [2] şeklinde EKLEMEK ZORUNDASIN.
+3. Asla aynı cümleyi tekrar etme. 
+
+Kaynaklar:
 {context}
 
 Soru: {question}
 Cevap:""",
-            input_variables = ["context", "question"]
+            input_variables=["context", "question"]
         )
 
     # Node 1: Hybrid Search (Vector + Graph Extension)
@@ -55,30 +72,45 @@ Cevap:""",
         question = state["question"]
 
         try:
+            context_str = "Kanun Maddeleri (Doğrulanabilir Kaynaklar):\n"
+            unique_sources = set()
+            relationships_text = "Graph Bağlantıları:\n"
+
+            doc_results = self.doc_index.similarity_search(question, k=2)
+            for doc in doc_results:
+                unique_sources.add(doc.page_content)
+            
             # We use vector search to find the three nodes that are semantically most relevant
-            vector_results = self.vector_index.similarity_search(question, k=3)
-            entity_ids = [res.page_content for res in vector_results]
+            vector_results = self.vector_index.similarity_search(question, k=2)
+            entity_ids = [res.metadata.get("id") for res in vector_results if res.metadata.get("id")]
 
-            if not entity_ids:
-                return {"graph_context": "[]"}
-            
-            # STABLE AND SECURE CYPHER: We retrieve the original PDF text (Document.text) from the nodes found
-            cypher_query = """
-            MATCH (e:`__Entity__`) WHERE e.id IN $entity_ids
-            MATCH (e)-[r]-(neighbor)
-            MATCH (e)<-[:MENTIONS]-(d:Document)
-            RETURN DISTINCT e.id AS Varlik, type(r) AS Iliski, neighbor.id AS BaglantiliVarlik, d.text AS KaynakMetin
-            LIMIT 5
-            """
-            graph_results = self.graph_db.query(cypher_query, params={"entity_ids": entity_ids})
+            if entity_ids:
+                cypher_query = """
+                UNWIND $entity_ids AS e_id
+                MATCH (start:`__Entity__` {id: e_id})
+                OPTIONAL MATCH (start)-[r]-(neighbor:`__Entity__`)
+                RETURN DISTINCT 
+                    start.name AS Baslangic, type(r) AS Iliski, neighbor.name AS Komsuluk,
+                    start.source_sentence AS Kaynak1, r.source_sentence AS Kaynak2, neighbor.source_sentence AS Kaynak3
+                LIMIT 5
+                """
+                graph_results = self.graph_db.query(cypher_query, params={"entity_ids": entity_ids})
 
-            # We are converting this into a clean text that the LLM can read easily
-            context_str = ""
-            for res in graph_results:
-                context_str += f"- Grafik Bağlantısı: {res['Varlik']} {res['Iliski']} {res['BaglantiliVarlik']}\n"
-                context_str += f"  Orijinal Kaynak: {res['KaynakMetin']}\n\n"
+                for res in graph_results:
+                    if res.get('Iliski') and res.get('Komsuluk'):
+                        relationships_text += f"- {res['Baslangic']} -> {res['Iliski']} -> {res['Komsuluk']}\n"
+                    
+                    if res['Kaynak1']: unique_sources.add(res['Kaynak1'])
+                    if res['Kaynak2']: unique_sources.add(res['Kaynak2'])
+                    if res['Kaynak3']: unique_sources.add(res['Kaynak3'])
+
+            for i, source in enumerate(list(unique_sources), 1):
+                context_str += f"[{i}] {source}\n"
             
-            print(f"\033[90m   {len(graph_results)} definite graph connections and legal texts were retrieved from Neo4j.\033[0m")
+            if "->" in relationships_text:
+                context_str += f"\n{relationships_text}"
+            
+            # print(f"\033[90m   {len(graph_results)} definite graph connections and legal texts were retrieved from Neo4j.\033[0m")
             return {"graph_context": context_str.strip()}
         
         except Exception as e:
@@ -98,6 +130,7 @@ Cevap:""",
         print("\033[94m(Step 2)  The LLM generates the final answer using the extracted legal texts...\033[0m")
         chain = self.answer_prompt | self.llm | StrOutputParser()
         answer = chain.invoke({"context": context, "question": question})
+        # answer.replace("[BİTTİ]", "")
 
         return {"answer": answer}
     
