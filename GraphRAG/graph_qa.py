@@ -50,19 +50,20 @@ class GraphQA:
 
         # Generating Prompt Verifiable Attribution
         self.answer_prompt = PromptTemplate(
-            template="""Sen katı ve analitik bir Türk Ceza Kanunu (TCK) asistanısın.
-Aşağıdaki numaralandırılmış kesin kanun metinlerini (Kaynaklar) kullanarak soruyu cevapla.
+            template="""You are a strict and analytical legal assistant specializing in the Turkish Penal Code (TCK).
+Answer the user's question using ONLY the numbered legal texts (Sources) provided below.
 
-KURALLAR:
-1. Sadece verilen kaynaklardaki bilgileri kullan. Bilgi yoksa "Bu konu hakkında kanun metninde bilgi bulunmamaktadır." de.
-2. Her hukuki iddianın sonuna, o bilgiyi aldığın kaynağın numarasını [1], [2] şeklinde EKLEMEK ZORUNDASIN.
-3. Asla aynı cümleyi tekrar etme. 
+STRICT RULES:
+1. Base your answer SOLELY on the provided Sources. If the information is not present in the Sources, you MUST say exactly: "Bu konu hakkında kanun metninde bilgi bulunmamaktadır."
+2. You MUST append the corresponding source number [1], [2] at the end of EVERY legal claim or sentence you write.
+3. Do not repeat sentences. Synthesize the information clearly.
+4. Your final answer MUST be written entirely in Turkish.
 
-Kaynaklar:
+Sources (Turkish):
 {context}
 
-Soru: {question}
-Cevap:""",
+Question (Turkish): {question}
+Answer (Turkish):""",
             input_variables=["context", "question"]
         )
 
@@ -100,9 +101,9 @@ Cevap:""",
                     if res.get('Iliski') and res.get('Komsuluk'):
                         relationships_text += f"- {res['Baslangic']} -> {res['Iliski']} -> {res['Komsuluk']}\n"
                     
-                    if res['Kaynak1']: unique_sources.add(res['Kaynak1'])
-                    if res['Kaynak2']: unique_sources.add(res['Kaynak2'])
-                    if res['Kaynak3']: unique_sources.add(res['Kaynak3'])
+                    if res.get('Kaynak1'): unique_sources.add(res['Kaynak1'])
+                    if res.get('Kaynak2'): unique_sources.add(res['Kaynak2'])
+                    if res.get('Kaynak3'): unique_sources.add(res['Kaynak3'])
 
             for i, source in enumerate(list(unique_sources), 1):
                 context_str += f"[{i}] {source}\n"
@@ -125,7 +126,7 @@ Cevap:""",
         # Hallucination Shield
         if not context or context.strip() == "" or context.strip() == "[]":
             print("\033[93m[!] No data returned from Neo4j; LLM is being skipped (hallucination prevented).\033[0m")
-            return {"answer": "I’m sorry, I couldn’t find any information in the database that matches this query. Please try using different keywords."}
+            return {"answer": "Bu konu hakkında kanun metninde bilgi bulunmamaktadır."}
         
         print("\033[94m(Step 2)  The LLM generates the final answer using the extracted legal texts...\033[0m")
         chain = self.answer_prompt | self.llm | StrOutputParser()
@@ -164,5 +165,3 @@ Cevap:""",
         print("\033[92m" + "="*60 + "\033[0m")
         
         return result
-
-

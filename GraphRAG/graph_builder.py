@@ -1,15 +1,35 @@
-import re
 import time
-import json
+from typing import List
+from pydantic import BaseModel, Field
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_neo4j import Neo4jVector
 from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+
+
+# Pydantic Templates
+class Entity(BaseModel):
+    name: str = Field(description="Name of the entity or legal concept in Turkish (e.g., Kasten öldürme, Meşru savunma)")
+    type: str = Field(description="MUST BE EXACTLY ONE OF: SUÇ, CEZA, NİTELİKLİ_HAL, İNDİRİM_NEDENİ, HUKUKA_UYGUNLUK, KİŞİ, KAVRAM")
+    description: str = Field(description="Brief legal explanation of this entity in Turkish")
+    source_sentence: str = Field(description="The EXACT ORIGINAL sentence from the provided Turkish source text. Do not translate.")
+
+
+class Relationship(BaseModel):
+    source: str = Field(description="Name of the source entity (Must match exactly with an Entity name)")
+    target: str = Field(description="Name of the target entity (Must match exactly with an Entity name)")
+    type: str = Field(description="MUST BE EXACTLY ONE OF: CEZALANDIRILIR, CEZAYI_ARTIRIR, CEZAYI_İNDİRİR, CEZAYI_KALDIRIR, ŞARTIDIR, İLGİLİDİR")
+    source_sentence: str = Field(description="The EXACT ORIGINAL sentence from the provided Turkish text that proves this relationship.")
+
+
+class GraphExtraction(BaseModel):
+    entities: List[Entity] = Field(description="List of extracted legal entities")
+    relationships: List[Relationship] = Field(description="List of extracted relationships between entities")
 
 
 class GraphBuilder:
-
     def __init__(
         self,
         llm,
@@ -17,7 +37,7 @@ class GraphBuilder:
         db_uri: str = None,
         db_user: str = None,
         db_password: str = None,
-        embedding_model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        embedding_model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     ):
         self.llm = llm
         self.graph_db = graph_db
@@ -43,62 +63,29 @@ class GraphBuilder:
             model_name=embedding_model_name,
             model_kwargs={"device": "cuda"},
         )
-        
+
+        # We are giving Pydantic model to LangChain Json parser to make sure output is valid JSON
+        self.parser = JsonOutputParser(pydantic_object=GraphExtraction)
 
         self.extraction_prompt = PromptTemplate(
-            template="""Sen bir Türk Ceza Kanunu (TCK) uzmanısın. Aşağıdaki metni analiz et ve varlıkları (entities) ile ilişkileri (relationships) JSON formatında çıkar.
+            template="""You are an expert system analyzing the Turkish Penal Code (TCK). 
+Your task is to extract legal entities and their relationships from the provided Turkish text.
 
-KULLANABİLECEĞİN VARLIK (ENTITY) TÜRLERİ SADECE ŞUNLARDIR:
-- SUÇ (Örn: Kasten öldürme, İşkence, Hırsızlık)
-- CEZA (Örn: Müebbet hapis, Adli para cezası)
-- NİTELİKLİ_HAL (Örn: Tasarlayarak, Canavarca hisle, Gebe kadına karşı)
-- İNDİRİM_NEDENİ (Örn: Haksız tahrik, Yaş küçüklüğü, İyi hal)
-- HUKUKA_UYGUNLUK (Örn: Meşru savunma, Zorunluluk hali, Kanun hükmü)
-- KİŞİ (Örn: Fail, Mağdur, Kamu görevlisi)
+INSTRUCTIONS:
+1. Extract entities and relationships exactly as requested in the format instructions.
+2. The values for 'name', 'description', and 'source_sentence' MUST be in Turkish, exactly as they appear in the source text.
+3. NEVER invent or translate any 'source_sentence'. Extract it exactly from the text.
+4. Output ONLY valid JSON. No explanations, no markdown outside of JSON.
 
-KULLANABİLECEĞİN İLİŞKİ (RELATIONSHIP) TÜRLERİ SADECE ŞUNLARDIR:
-- CEZALANDIRILIR (Suç -> Ceza bağlantısı)
-- CEZAYI_ARTIRIR (Nitelikli Hal -> Suç bağlantısı)
-- CEZAYI_İNDİRİR (İndirim Nedeni -> Suç bağlantısı)
-- CEZAYI_KALDIRIR (Hukuka Uygunluk -> Suç bağlantısı)
-- İÇERİR (Bir madde veya bölüm -> Suç bağlantısı)
+FORMAT INSTRUCTIONS:
+{format_instructions}
 
-METİN:
+SOURCE TEXT (TURKISH):
 {text}
-
-Aşağıdaki KESİN JSON formatında çıktı ver. Başka hiçbir açıklama yazma.
-ÖNEMLİ KURAL: 'source_sentence' kısmına, o varlığı/ilişkiyi çıkardığın metindeki ORİJİNAL TAM CÜMLEYİ harfi harfine yazmalısın. Bu hukuki ispat için zorunludur.
-
-{{
-  "entities": [
-    {{
-      "name": "Kasten öldürme",
-      "type": "SUÇ",
-      "description": "Bir insanı kasten öldürme fiili",
-      "source_sentence": "Bir insanı kasten öldüren kişi, müebbet hapis cezası ile cezalandırılır."
-    }}
-  ],
-  "relationships": [
-    {{
-      "source": "Kasten öldürme",
-      "target": "Müebbet hapis cezası",
-      "type": "CEZALANDIRILIR",
-      "source_sentence": "Bir insanı kasten öldüren kişi, müebbet hapis cezası ile cezalandırılır."
-    }}
-  ]
-}}
 """,
-            input_variables=["text"]
+            input_variables=["text"],
+            partial_variables={"format_instructions": self.parser.get_format_instructions()}
         )
-    
-    def _clean_json_output(self, text: str) -> dict:
-        try:
-            match = re.search(r'\{.*\}', text, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            return json.loads(text)
-        except Exception as e:
-            return {"entities": [], "relationships": []}
     
     def process_and_build(self, pdf_path: str):
         print(f"\033[94mLoading PDF from {pdf_path}...\033[0m")
@@ -114,20 +101,24 @@ Aşağıdaki KESİN JSON formatında çıktı ver. Başka hiçbir açıklama yaz
         total_entities = 0
         total_relationships = 0
 
-        chain = self.extraction_prompt | self.llm
+        chain = self.extraction_prompt | self.llm | self.parser
 
         for i, chunk in enumerate(chunks):
             print(f"\033[90mProcessing: {i+1}/{len(chunks)}\033[0m", end="\r")
+            
+            # Security Network: If llm fails to extract entities and relationships, we should still save the document to the graph.
             try:
                 cypher_doc = """
                 CREATE (d:Document {text: $text})
                 """
                 self.graph_db.query(cypher_doc, params={"text": chunk.page_content})
+            
+            except Exception as e:
+                pass
 
-                response = chain.invoke({"text": chunk.page_content})
-                response_text = response.content if hasattr(response, 'content') else str(response)
-
-                parsed_data = self._clean_json_output(response_text)
+            # LLM Processing
+            try:
+                parsed_data = chain.invoke({"text": chunk.page_content})
 
                 # Entities save to Neo4js with Sentence
                 for entity in parsed_data.get("entities", []):
@@ -151,18 +142,20 @@ Aşağıdaki KESİN JSON formatında çıktı ver. Başka hiçbir açıklama yaz
                 
                 # Relationships save to Neo4j with Sentence
                 for rel in parsed_data.get("relationships", []):
-                    cypher_rel = f"""
-                    MATCH (s:`__Entity__` {{id: $source}})
-                    MATCH (t:`__Entity__` {{id: $target}})
-                    MERGE (s)-[r:{rel.get('type', 'İLGİLİDİR')}]->(t)
-                    SET r.source_sentence = $sentence
+                    cypher_rel = """
+                    MATCH (s:`__Entity__` {id: $source})
+                    MATCH (t:`__Entity__` {id: $target})
+                    MERGE (s)-[r:İLGİLİDİR]->(t)
+                    SET r.type = $type,
+                        r.source_sentence = $sentence
                     """
                     self.graph_db.query(
                         cypher_rel,
                         params={
                             "source": rel.get("source"),
                             "target": rel.get("target"),
-                            "sentence": rel.get("source_manager", "")
+                            "type": rel.get("type", "İLGİLİDİR"),
+                            "sentence": rel.get("source_sentence", "")
                         }
                     )
                     total_relationships += 1
