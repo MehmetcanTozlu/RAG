@@ -1,4 +1,5 @@
-from langchain_core.prompts import PromptTemplate
+import re
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END
 from graph_state import GraphRAGState
@@ -31,8 +32,10 @@ class GraphQA:
             username=db_user,
             password=db_password,
             index_name="entity_vector_index",
+            keyword_index_name="entity_keyword_index",
             node_label="__Entity__",
             text_node_property="name",
+            search_type="hybrid",
         )
 
         # Security Network Index (For Directly Original Texts)
@@ -43,29 +46,39 @@ class GraphQA:
             username=db_user,
             password=db_password,
             index_name="document_vector_index",
+            keyword_index_name="document_keyword_index",
             node_label="Document",
             text_node_properties=["text"],
-            embedding_node_property="embedding"
+            embedding_node_property="embedding",
+            search_type="hybrid",
         )
 
         # Generating Prompt Verifiable Attribution
-        self.answer_prompt = PromptTemplate(
-            template="""You are a strict and analytical legal assistant specializing in the Turkish Penal Code (TCK).
-Answer the user's question using ONLY the numbered legal texts (Sources) provided below.
+        system_template = """Sen kesin ve acımasız bir Türk Ceza Kanunu (TCK) robotusun.
+Kurallara KESİNLİKLE uymalısın:
+1. Sadece kullanıcının verdiği "Kanun Maddeleri" içindeki bilgileri kullan.
+2. Sorudaki suçun "temel" halini (Örn: Hırsızlık Madde 141, Kasten Öldürme Madde 81) bulmaya öncelik ver.
+3. Asla "Öneririm", "Belirtilmektedir", "Şu maddeye göre" gibi sohbet cümleleri KURMA. 
+4. SADECE AŞAĞIDAKİ XML FORMATINDA ÇIKTI VER:
 
-STRICT RULES:
-1. Base your answer SOLELY on the provided Sources. If the information is not present in the Sources, you MUST say exactly: "Bu konu hakkında kanun metninde bilgi bulunmamaktadır."
-2. You MUST append the corresponding source number [1], [2] at the end of EVERY legal claim or sentence you write.
-3. Do not repeat sentences. Synthesize the information clearly.
-4. Your final answer MUST be written entirely in Turkish.
+<thought>
+- Sorulan Suç: [Suçun adı]
+- İlgili Kaynak: [Bu suçun temel cezasını veren kaynağın numarası]
+- Temel Ceza: [Cezanın alt ve üst sınırı]
+</thought>
+<answer>
+[Sadece net ve doğrudan cevap. Örn: Hırsızlık suçunun cezası 1 yıldan 3 yıla kadar hapistir [2].]
+</answer>"""
 
-Sources (Turkish):
+        human_template = """Kanun Maddeleri:
 {context}
 
-Question (Turkish): {question}
-Answer (Turkish):""",
-            input_variables=["context", "question"]
-        )
+Soru: {question}"""
+
+        self.answer_prompt = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(system_template),
+            HumanMessagePromptTemplate.from_template(human_template)
+        ])
 
     # Node 1: Hybrid Search (Vector + Graph Extension)
     def _hybrid_search(self, state: GraphRAGState):
@@ -77,13 +90,13 @@ Answer (Turkish):""",
             unique_sources = set()
             relationships_text = "Graph Bağlantıları:\n"
 
-            doc_results = self.doc_index.similarity_search(question, k=2)
+            doc_results = self.doc_index.similarity_search(question, k=3)
             for doc in doc_results:
                 unique_sources.add(doc.page_content)
             
             # We use vector search to find the three nodes that are semantically most relevant
-            vector_results = self.vector_index.similarity_search(question, k=2)
-            entity_ids = [res.metadata.get("id") for res in vector_results if res.metadata.get("id")]
+            vector_results = self.vector_index.similarity_search(question, k=3)
+            entity_ids = [res.metadata.get("id") for res in vector_results if res.metadata and res.metadata.get("id")]
 
             if entity_ids:
                 cypher_query = """
@@ -108,8 +121,8 @@ Answer (Turkish):""",
             for i, source in enumerate(list(unique_sources), 1):
                 context_str += f"[{i}] {source}\n"
             
-            if "->" in relationships_text:
-                context_str += f"\n{relationships_text}"
+            # if "->" in relationships_text:
+            #     context_str += f"\n{relationships_text}"
             
             # print(f"\033[90m   {len(graph_results)} definite graph connections and legal texts were retrieved from Neo4j.\033[0m")
             return {"graph_context": context_str.strip()}
@@ -130,10 +143,23 @@ Answer (Turkish):""",
         
         print("\033[94m(Step 2)  The LLM generates the final answer using the extracted legal texts...\033[0m")
         chain = self.answer_prompt | self.llm | StrOutputParser()
-        answer = chain.invoke({"context": context, "question": question})
-        # answer.replace("[BİTTİ]", "")
+        final_answer = chain.invoke({"context": context, "question": question})
+        
+        # raw_answer = chain.invoke({"context": context, "question": question})
+        
+        # thought_match = re.search(r'<thought>(.*?)</thought>', raw_answer, re.DOTALL | re.IGNORECASE)
+        # answer_match = re.search(r'<answer>(.*?)</answer>', raw_answer, re.DOTALL | re.IGNORECASE)
 
-        return {"answer": answer}
+        # if thought_match:
+        #     print("\n\033[93m----- LLM Thinking Chain (Reasoning) -----\n{thought_match.group(1).strip()}\n--------------------------------\033[0m")
+
+        # if answer_match:
+        #     final_answer = answer_match.group(1).strip()
+        #     print("\n\033[93m----- LLM Answer Chain (Final Answer) -----\n{answer_match.group(1).strip()}\n--------------------------------\033[0m")
+        # else:
+        #     final_answer = raw_answer
+        
+        return {"answer": final_answer.strip()}
     
     def build_workflow(self):
         workflow = StateGraph(GraphRAGState)

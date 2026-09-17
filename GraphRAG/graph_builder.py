@@ -173,6 +173,8 @@ SOURCE TEXT (TURKISH):
                 username=self.db_user,
                 password=self.db_password,
                 index_name="entity_vector_index",
+                keyword_index_name="entity_keyword_index",
+                search_type="hybrid",
                 node_label="__Entity__",
                 text_node_properties=["name", "description"],
                 embedding_node_property="embedding",
