@@ -21,7 +21,7 @@ A highly optimized, standard-bearer RAG pipeline that combines semantic and keyw
 
 ### 2. [GraphRAG (Current)](/GraphRAG/)
 Transitioning from flat vector spaces to interconnected Knowledge Graphs.
-* **Focus:** Extracting entities and relationships to answer complex, multi-hop reasoning questions that traditional vector searches fail to connect.
+* **Focus:** Extracting precise legal entities and relationships to answer complex, multi-hop reasoning questions. This module tackles the inherent challenges of local, small-parameter models (e.g., 7B quantized) through rigorous prompt engineering, schema enforcement, and dual-index retrieval.
 * **Tech Stack:** Neo4j, LangGraph.
 
 ### 3. [CRAG (Corrective RAG) (Current)](/CRAG/)
