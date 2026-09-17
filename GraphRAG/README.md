@@ -46,7 +46,7 @@ python app.py \
   --pdf_path "/path/to/document.pdf"
 ```
 
-##Run with Cloud Neo4j (AuraDB):**
+**Run with Cloud Neo4j (AuraDB):**
 
 ```bash
 python app.py \
