@@ -132,7 +132,7 @@ Soru: {question}"""
             return {"graph_context": "[]"}
     
     # Node 2: Production and Hallucination Shield
-    def _generate_answer(self, state: GraphRAGState):
+    async def _generate_answer(self, state: GraphRAGState):
         question = state["question"]
         context = state["graph_context"]
 
@@ -143,21 +143,7 @@ Soru: {question}"""
         
         print("\033[94m(Step 2)  The LLM generates the final answer using the extracted legal texts...\033[0m")
         chain = self.answer_prompt | self.llm | StrOutputParser()
-        final_answer = chain.invoke({"context": context, "question": question})
-        
-        # raw_answer = chain.invoke({"context": context, "question": question})
-        
-        # thought_match = re.search(r'<thought>(.*?)</thought>', raw_answer, re.DOTALL | re.IGNORECASE)
-        # answer_match = re.search(r'<answer>(.*?)</answer>', raw_answer, re.DOTALL | re.IGNORECASE)
-
-        # if thought_match:
-        #     print("\n\033[93m----- LLM Thinking Chain (Reasoning) -----\n{thought_match.group(1).strip()}\n--------------------------------\033[0m")
-
-        # if answer_match:
-        #     final_answer = answer_match.group(1).strip()
-        #     print("\n\033[93m----- LLM Answer Chain (Final Answer) -----\n{answer_match.group(1).strip()}\n--------------------------------\033[0m")
-        # else:
-        #     final_answer = raw_answer
+        final_answer = await chain.ainvoke({"context": context, "question": question})
         
         return {"answer": final_answer.strip()}
     
@@ -173,7 +159,7 @@ Soru: {question}"""
 
         return workflow.compile()
     
-    def ask(self, question: str):
+    async def ask(self, question: str):
         app = self.build_workflow()
         initial_state = {
             "question": question,
@@ -181,7 +167,7 @@ Soru: {question}"""
             "graph_context": "",
             "answer": ""
         }
-        result = app.invoke(initial_state)
+        result = await app.ainvoke(initial_state)
 
         print("\n\033[92m" + "="*60 + "\033[0m")
         print(f"\033[96mQuestion:\033[0m {result['question']}")

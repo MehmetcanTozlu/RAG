@@ -9,7 +9,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
 
-# Pydantic Templates
+# ====== Pydantic Templates ======
+# Entity(Node) Template
 class Entity(BaseModel):
     name: str = Field(description="Name of the entity or legal concept in Turkish (e.g., Kasten öldürme, Meşru savunma)")
     type: str = Field(description="MUST BE EXACTLY ONE OF: SUÇ, CEZA, NİTELİKLİ_HAL, İNDİRİM_NEDENİ, HUKUKA_UYGUNLUK, KİŞİ, KAVRAM")
@@ -17,6 +18,7 @@ class Entity(BaseModel):
     source_sentence: str = Field(description="The EXACT ORIGINAL sentence from the provided Turkish source text. Do not translate.")
 
 
+# Relationship (Edge) Template
 class Relationship(BaseModel):
     source: str = Field(description="Name of the source entity (Must match exactly with an Entity name)")
     target: str = Field(description="Name of the target entity (Must match exactly with an Entity name)")
@@ -24,6 +26,7 @@ class Relationship(BaseModel):
     source_sentence: str = Field(description="The EXACT ORIGINAL sentence from the provided Turkish text that proves this relationship.")
 
 
+# Final Extraction Template (Combines both)
 class GraphExtraction(BaseModel):
     entities: List[Entity] = Field(description="List of extracted legal entities")
     relationships: List[Relationship] = Field(description="List of extracted relationships between entities")
