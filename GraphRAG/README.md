@@ -42,15 +42,22 @@ To support multi-user concurrency (e.g., 1M+ DAU) and avoid Python's GIL bottlen
 
 ## 🚀 How to Run (Enterprise Mode)
 
-### Step 1: Environment Setup
-Ensure **Redis** is installed and running (`sudo service redis-server start`). Create a `.env` file in the root directory:
-```env
+### Step 1: Environment Setup & Redis Stack
+To support **Semantic Caching**, the system requires vector search capabilities (RediSearch). You must run **Redis Stack** instead of standard Redis. 
+
+Start the Redis Stack server via Docker:
+```bash
+docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
+```
+Create a .env file in the root directory and configure your paths and credentials:
+```snippet
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
 LLM_SERVER_URL=http://localhost:8001/v1
 EMBEDDING_MODEL_PATH=/path/to/embedding/model
 REDIS_URL=redis://localhost:6379/0
+CACHE_DB_PATH=./cache/langchain_cache.db
 ```
 
 ### Step 2: Build the Knowledge Graph
